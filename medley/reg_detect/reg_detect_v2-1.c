@@ -58,13 +58,11 @@ static void kernel_reg_detect(int niter, int maxgrid, int length,
   
   #pragma omp parallel for schedule(dynamic, 1)
   for (t = 0; t < _PB_NITER; t++)
-  { 
-    
+  {   
     for (j = 0; j <= _PB_MAXGRID - 1; j++)
       for (i = j; i <= _PB_MAXGRID - 1; i++)
         for (cnt = 0; cnt <= _PB_LENGTH - 1; cnt++)
           diff[j][i][cnt] = sum_tang[j][i];  
-
 
     for (j = 0; j <= _PB_MAXGRID - 1; j++)
     {
@@ -84,16 +82,6 @@ static void kernel_reg_detect(int niter, int maxgrid, int length,
     for (j = 1; j <= _PB_MAXGRID - 1; j++)
       for (i = j; i <= _PB_MAXGRID - 1; i++)
         path[j][i] = path[j - 1][i - 1] + mean[j][i];
-  
-  }
-
-  if (0) {
-    for (int r = 0; r < _PB_MAXGRID; ++r) {
-      for (int c = 0; c < _PB_MAXGRID; ++c) {
-        printf("%d\t", path[r][c]);
-      }
-      printf("\n");
-    }
   }
 }
 

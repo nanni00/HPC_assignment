@@ -10,6 +10,8 @@
 /* Default data type is int, default size is 50. */
 #include "reg_detect.h"
 
+#include <time.h>
+
 #define NTHREADS_GPU 1024
 #define SM 64
 
@@ -59,9 +61,13 @@ static void kernel_reg_detect(int niter, int maxgrid, int length,
 {
   int t, i, j, cnt;
 
+  clock_t begin = clock();
+
   int bk = _PB_NITER / SM;
 
-  #pragma omp target data map(tofrom:mean, path, diff, sum_diff, sum_tang)
+  #pragma omp target data \
+      map(to:bk, _PB_NITER, _PB_MAXGRID, _PB_LENGTH) \
+      map(tofrom:mean, path, diff, sum_diff, sum_tang)
   #pragma omp target teams num_teams(bk / NTHREADS_GPU) thread_limit(NTHREADS_GPU)
   #pragma omp distribute parallel for dist_schedule(static)
   for (t = 0; t < _PB_NITER; t += bk)
@@ -88,19 +94,11 @@ static void kernel_reg_detect(int niter, int maxgrid, int length,
 
     for (j = 1; j <= _PB_MAXGRID - 1; j++)
       for (i = j; i <= _PB_MAXGRID - 1; i++)
-        path[j][i] = path[j - 1][i - 1] + mean[j][i];
-  
+        path[j][i] = path[j - 1][i - 1] + mean[j][i];  
   }
 
-  if (0) {
-    for (int r = 0; r < _PB_MAXGRID; ++r) {
-      for (int c = 0; c < _PB_MAXGRID; ++c) {
-        printf("%d\t", path[r][c]);
-      }
-      printf("\n");
-    }
-  }
-
+  clock_t end = clock();
+  printf("Elapsed time with custom timer: %lf\n", (double)(end - begin) / CLOCKS_PER_SEC);
 }
 
 int main(int argc, char **argv)
@@ -133,8 +131,6 @@ int main(int argc, char **argv)
                     POLYBENCH_ARRAY(path),
                     POLYBENCH_ARRAY(diff),
                     POLYBENCH_ARRAY(sum_diff));
-
-
 
   /* Stop and print timer. */
   polybench_stop_instruments;

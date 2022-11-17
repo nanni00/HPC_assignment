@@ -88,15 +88,6 @@ static void kernel_reg_detect(int niter, int maxgrid, int length,
   
   }
 
-  if (0) {
-    for (int r = 0; r < _PB_MAXGRID; ++r) {
-      for (int c = 0; c < _PB_MAXGRID; ++c) {
-        printf("%d\t", path[r][c]);
-      }
-      printf("\n");
-    }
-  }
-
 }
 
 int main(int argc, char **argv)

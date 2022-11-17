@@ -10,6 +10,11 @@
 /* Default data type is int, default size is 50. */
 #include "reg_detect.h"
 
+#include <time.h>
+
+#define NTHREADS_GPU 1024
+#define SM 64
+
 /* Array initialization. */
 static void init_array(int maxgrid,
                        DATA_TYPE POLYBENCH_2D(sum_tang, MAXGRID, MAXGRID, maxgrid, maxgrid),
@@ -56,39 +61,44 @@ static void kernel_reg_detect(int niter, int maxgrid, int length,
 {
   int t, i, j, cnt;
 
-  #pragma omp target data map(tofrom: diff, sum_tang, sum_diff, mean, path) 
+  clock_t begin = clock();
+
+  int bk = _PB_NITER / SM;
+
+  #pragma omp target data \
+      map(to:bk, _PB_NITER, _PB_MAXGRID, _PB_LENGTH) \
+      map(tofrom:mean, path, diff, sum_diff, sum_tang)
+  #pragma omp target teams num_teams(bk / NTHREADS_GPU) thread_limit(NTHREADS_GPU)
+  #pragma omp distribute parallel for dist_schedule(static)
+  for (t = 0; t < _PB_NITER; t += bk)
   {
-    for (t = 0; t < _PB_NITER; t++)
-    { 
-      { 
-      #pragma omp parallel for schedule(dynamic)
-        for (j = 0; j <= _PB_MAXGRID - 1; j++)
-          for (i = j; i <= _PB_MAXGRID - 1; i++)
-            for (cnt = 0; cnt <= _PB_LENGTH - 1; cnt++)
-              diff[j][i][cnt] = sum_tang[j][i];  
-      }
-        
-      #pragma omp parallel for schedule(dynamic)
-      for (j = 0; j <= _PB_MAXGRID - 1; j++)
+    for (j = 0; j <= _PB_MAXGRID - 1; j++)
+      for (i = j; i <= _PB_MAXGRID - 1; i++)
+        for (cnt = 0; cnt <= _PB_LENGTH - 1; cnt++)
+          diff[j][i][cnt] = sum_tang[j][i];
+
+    for (j = 0; j <= _PB_MAXGRID - 1; j++)
+    {
+      for (i = j; i <= _PB_MAXGRID - 1; i++)
       {
-        for (i = j; i <= _PB_MAXGRID - 1; i++)
-        {
-          sum_diff[j][i][0] = diff[j][i][0];
-  
-          for (cnt = 1; cnt <= _PB_LENGTH - 1; cnt++)
-            sum_diff[j][i][cnt] = sum_diff[j][i][cnt - 1] + diff[j][i][cnt];
-          mean[j][i] = sum_diff[j][i][_PB_LENGTH - 1];
-        }
+        sum_diff[j][i][0] = diff[j][i][0];
+
+        for (cnt = 1; cnt <= _PB_LENGTH - 1; cnt++)
+          sum_diff[j][i][cnt] = sum_diff[j][i][cnt - 1] + diff[j][i][cnt];
+        mean[j][i] = sum_diff[j][i][_PB_LENGTH - 1];
       }
-            
-      for (i = 0; i <= _PB_MAXGRID - 1; i++)
-        path[0][i] = mean[0][i];        
-      
-      for (j = 1; j <= _PB_MAXGRID - 1; j++)
-        for (i = j; i <= _PB_MAXGRID - 1; i++)
-          path[j][i] = path[j - 1][i - 1] + mean[j][i];    
     }
+
+    for (i = 0; i <= _PB_MAXGRID - 1; i++)
+      path[0][i] = mean[0][i];
+
+    for (j = 1; j <= _PB_MAXGRID - 1; j++)
+      for (i = j; i <= _PB_MAXGRID - 1; i++)
+        path[j][i] = path[j - 1][i - 1] + mean[j][i];  
   }
+
+  clock_t end = clock();
+  printf("Elapsed time with custom timer: %lf\n", (double)(end - begin) / CLOCKS_PER_SEC);
 }
 
 int main(int argc, char **argv)
@@ -110,7 +120,6 @@ int main(int argc, char **argv)
              POLYBENCH_ARRAY(sum_tang),
              POLYBENCH_ARRAY(mean),
              POLYBENCH_ARRAY(path));
-  print_array(maxgrid, POLYBENCH_ARRAY(path));
 
   /* Start timer. */
   polybench_start_instruments;
@@ -123,7 +132,6 @@ int main(int argc, char **argv)
                     POLYBENCH_ARRAY(diff),
                     POLYBENCH_ARRAY(sum_diff));
 
-
   /* Stop and print timer. */
   polybench_stop_instruments;
   polybench_print_instruments;
@@ -131,7 +139,6 @@ int main(int argc, char **argv)
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */
   polybench_prevent_dce(print_array(maxgrid, POLYBENCH_ARRAY(path)));
-  print_array(maxgrid, POLYBENCH_ARRAY(path));
 
   /* Be clean. */
   POLYBENCH_FREE_ARRAY(sum_tang);

@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 /* Include polybench common header. */
 #include <polybench.h>
@@ -9,9 +10,6 @@
 /* Include benchmark-specific header. */
 /* Default data type is int, default size is 50. */
 #include "reg_detect.h"
-
-#define NTHREADS_GPU 1024
-#define SM 64
 
 /* Array initialization. */
 static void init_array(int maxgrid,
@@ -47,6 +45,7 @@ static void print_array(int maxgrid,
   fprintf(stdout, "\n");
 }
 
+
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 /* Source (modified): http://www.cs.uic.edu/~iluican/reg_detect.c */
@@ -57,15 +56,15 @@ static void kernel_reg_detect(int niter, int maxgrid, int length,
                               DATA_TYPE POLYBENCH_3D(diff, MAXGRID, MAXGRID, LENGTH, maxgrid, maxgrid, length),
                               DATA_TYPE POLYBENCH_3D(sum_diff, MAXGRID, MAXGRID, LENGTH, maxgrid, maxgrid, length))
 {
+  clock_t begin = clock();
   int t, i, j, cnt;
 
-  #pragma omp target parallel for map(tofrom:mean, path, diff, sum_diff, sum_tang)
   for (t = 0; t < _PB_NITER; t++)
-  {
+  { 
     for (j = 0; j <= _PB_MAXGRID - 1; j++)
       for (i = j; i <= _PB_MAXGRID - 1; i++)
         for (cnt = 0; cnt <= _PB_LENGTH - 1; cnt++)
-          diff[j][i][cnt] = sum_tang[j][i];
+          diff[j][i][cnt] = sum_tang[j][i];  
 
     for (j = 0; j <= _PB_MAXGRID - 1; j++)
     {
@@ -85,9 +84,10 @@ static void kernel_reg_detect(int niter, int maxgrid, int length,
     for (j = 1; j <= _PB_MAXGRID - 1; j++)
       for (i = j; i <= _PB_MAXGRID - 1; i++)
         path[j][i] = path[j - 1][i - 1] + mean[j][i];
-  
   }
 
+  clock_t end = clock();
+  printf("Elapsed time with custom timer: %lf\n", (double)(end - begin) / CLOCKS_PER_SEC);
 }
 
 int main(int argc, char **argv)
@@ -112,6 +112,8 @@ int main(int argc, char **argv)
 
   /* Start timer. */
   polybench_start_instruments;
+  print_array(maxgrid, POLYBENCH_ARRAY(path));
+
 
   /* Run kernel. */
   kernel_reg_detect(niter, maxgrid, length,
@@ -121,7 +123,7 @@ int main(int argc, char **argv)
                     POLYBENCH_ARRAY(diff),
                     POLYBENCH_ARRAY(sum_diff));
 
-
+  print_array(maxgrid, POLYBENCH_ARRAY(path));
 
   /* Stop and print timer. */
   polybench_stop_instruments;

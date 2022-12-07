@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 /* Include polybench common header. */
 #include <polybench.h>
@@ -54,6 +55,7 @@ static void kernel_reg_detect(int niter, int maxgrid, int length,
                               DATA_TYPE POLYBENCH_3D(diff, MAXGRID, MAXGRID, LENGTH, maxgrid, maxgrid, length),
                               DATA_TYPE POLYBENCH_3D(sum_diff, MAXGRID, MAXGRID, LENGTH, maxgrid, maxgrid, length))
 {
+  clock_t begin = clock();
   int t, i, j, cnt;
 
   for (t = 0; t < _PB_NITER; t++)
@@ -82,6 +84,9 @@ static void kernel_reg_detect(int niter, int maxgrid, int length,
       for (i = j; i <= _PB_MAXGRID - 1; i++)
         path[j][i] = path[j - 1][i - 1] + mean[j][i];
   }
+
+  clock_t end = clock();
+  printf("Elapsed time with custom timer: %lf\n", (double)(end - begin) / CLOCKS_PER_SEC);
 }
 
 int main(int argc, char **argv)
@@ -106,6 +111,8 @@ int main(int argc, char **argv)
 
   /* Start timer. */
   polybench_start_instruments;
+  print_array(maxgrid, POLYBENCH_ARRAY(path));
+
 
   /* Run kernel. */
   kernel_reg_detect(niter, maxgrid, length,
@@ -115,6 +122,7 @@ int main(int argc, char **argv)
                     POLYBENCH_ARRAY(diff),
                     POLYBENCH_ARRAY(sum_diff));
 
+  print_array(maxgrid, POLYBENCH_ARRAY(path));
 
   /* Stop and print timer. */
   polybench_stop_instruments;

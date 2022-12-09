@@ -3,10 +3,26 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <cuda_runtime.h>
 
 /* Include benchmark-specific header. */
 /* Default data type is int, default size is 50. */
 #include "reg_detect.h"
+
+
+#define gpuErrchk(ans)                        \
+    {                                         \
+        gpuAssert((ans), __FILE__, __LINE__); \
+    }
+static inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort = true)
+{
+    if (code != cudaSuccess)
+    {
+        fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+        if (abort)
+            exit(code);
+    }
+}
 
 static void init_array(int maxgrid, int** sum_tang, int** mean, int** path)
 {

@@ -38,7 +38,15 @@
 #   define LENGTH 500
 #   define MAXGRID 12
 #  endif
+
+#  ifdef MY_DATASET
+#   define NITER 10
+#   define LENGTH 500
+#   define MAXGRID 128
+#  endif
+
 # endif /* !N */
+
 
 # define _PB_NITER POLYBENCH_LOOP_BOUND(NITER,niter)
 # define _PB_LENGTH POLYBENCH_LOOP_BOUND(LENGTH,length)

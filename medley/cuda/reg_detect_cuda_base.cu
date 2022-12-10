@@ -66,12 +66,26 @@ static void kernel_reg_detect(int niter, int maxgrid, int length,int** sum_tang,
 
     for (j = 0; j <= maxgrid - 1; j++)
     {
+      for (i = j; i <= maxgrid - 1; i++) {
+        sum_diff[j][i][0] = diff[j][i][0];
+      }
+    }
+
+    for (j = 0; j <= maxgrid - 1; j++)
+    {
       for (i = j; i <= maxgrid - 1; i++)
       {
-        sum_diff[j][i][0] = diff[j][i][0];
+        //sum_diff[j][i][0] = diff[j][i][0];
 
         for (cnt = 1; cnt <= length - 1; cnt++)
           sum_diff[j][i][cnt] = sum_diff[j][i][cnt - 1] + diff[j][i][cnt];
+        
+      }
+    }
+
+    for (j = 0; j <= maxgrid - 1; j++)
+    {
+      for (i = j; i <= maxgrid - 1; i++) {
         mean[j][i] = sum_diff[j][i][length - 1];
       }
     }
@@ -113,13 +127,10 @@ int main() {
     }
 
 
-    
-
     print_array(maxgrid, path);
     init_array(maxgrid, sum_tang, mean, path);
     kernel_reg_detect(niter, maxgrid, length, sum_tang, mean, path, diff, sum_diff);
     print_array(maxgrid, path);
-
 
 
 

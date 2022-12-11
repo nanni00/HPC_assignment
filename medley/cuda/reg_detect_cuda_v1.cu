@@ -89,11 +89,11 @@ static void kernel_reg_detect(int niter, int maxgrid, int length,int* sum_tang_d
                               int* path_d, int* diff_d, int* sum_diff_d)
 {
 
-  dim3 dimGrid((maxgrid+BLOCK_SIZE-1)/BLOCK_SIZE,(maxgrid+BLOCK_SIZE-1)/BLOCK_SIZE);
-  dim3 dimBlock(BLOCK_SIZE,BLOCK_SIZE);
+  //dim3 dimGrid((maxgrid+BLOCK_SIZE-1)/BLOCK_SIZE,(maxgrid+BLOCK_SIZE-1)/BLOCK_SIZE);
+  //dim3 dimBlock(BLOCK_SIZE,BLOCK_SIZE);
 
-  //dim3 dimGrid(1, 1);
-  //dim3 dimBlock(maxgrid,maxgrid);
+  dim3 dimGrid(1, 1);
+  dim3 dimBlock(maxgrid,maxgrid);
 
   clock_t begin = clock();
   
@@ -141,7 +141,7 @@ int main() {
     print_array(maxgrid, path);
 
     // copies to the device
-    cudaMemcpy(sum_tang_d, sum_tang, sizeof(int) * maxgrid, cudaMemcpyHostToDevice);
+    cudaMemcpy(sum_tang_d, sum_tang, sizeof(int) * maxgrid * maxgrid, cudaMemcpyHostToDevice);
     cudaMemcpy(mean_d, mean, sizeof(int) * maxgrid * maxgrid, cudaMemcpyHostToDevice);
     cudaMemcpy(path_d, path, sizeof(int) * maxgrid * maxgrid, cudaMemcpyHostToDevice);
 

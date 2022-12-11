@@ -51,44 +51,6 @@ static void print_array(int maxgrid, int* path)
   fprintf(stdout, "\n");
 }
 
-/*
-static void kernel_reg_detect(int niter, int maxgrid, int length,int* sum_tang,int* mean,
-                              int* path, int* diff, int* sum_diff)
-{
-  clock_t begin = clock();
-
-  for (int t = 0; t < niter; t++)
-  { 
-    for (j = 0; j <= maxgrid - 1; j++)
-      for (i = j; i <= maxgrid - 1; i++)
-        for (cnt = 0; cnt <= length - 1; cnt++)
-          diff[(j*maxgrid + i)*length + cnt] = sum_tang[j*maxgrid + i];  
-
-    for (j = 0; j <= maxgrid - 1; j++)
-    {
-      for (i = j; i <= maxgrid - 1; i++)
-      {
-        sum_diff[(j*maxgrid + i)*length] = diff[(j*maxgrid + i)*length];
-
-        for (cnt = 1; cnt <= length - 1; cnt++)
-          sum_diff[(j*maxgrid + i)*length + cnt] = sum_diff[(j*maxgrid + i)*length + cnt - 1] + diff[(j*maxgrid + i)*length + cnt];
-        mean[j*maxgrid + i] = sum_diff[(j*maxgrid + i)*length + (length - 1)];
-      }
-    }
-
-    for (i = 0; i <= maxgrid - 1; i++)
-      path[i] = mean[i];
-
-    for (j = 1; j <= maxgrid - 1; j++)
-      for (i = j; i <= maxgrid - 1; i++)
-        path[j*maxgrid + i] = path[(j - 1)*maxgrid + (i-1)] + mean[j*maxgrid + i];
-  }
-
-  clock_t end = clock();
-  printf("Elapsed time with custom timer: %lf\n", (double)(end - begin) / CLOCKS_PER_SEC);
-}
-*/
-
 __global__ void kernel(int maxgrid, int length,int* sum_tang_d,int* mean_d, int* path_d, int* diff_d, int* sum_diff_d, int selector) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   int j = blockIdx.y * blockDim.y + threadIdx.y;
@@ -102,11 +64,11 @@ __global__ void kernel(int maxgrid, int length,int* sum_tang_d,int* mean_d, int*
       diff_d[(j*maxgrid + i)*length + cnt] = sum_tang_d[j*maxgrid + i];  
   } else if (selector == 2) {
     //Secondo for
-    sum_diff_d[(j*maxgrid + i)*length] = diff_d[(j*maxgrid + i)*length];
+    sum_diff_d[(j*maxgrid + i)*length] = diff_uva[(j*maxgrid + i)*length];
 
     for (int cnt = 1; cnt <= length - 1; cnt++)
       sum_diff_d[(j*maxgrid + i)*length + cnt] = sum_diff_d[(j*maxgrid + i)*length + cnt - 1] + diff_d[(j*maxgrid + i)*length + cnt];
-    mean_d[j*maxgrid + i] = sum_diff_d[(j*maxgrid + i)*length + (length - 1)];
+    mean_d[j*maxgrid + i] = sum_diff_uva[(j*maxgrid + i)*length + (length - 1)];
   } else if (selector == 3 && j == 0) {
     //Terzo for
     path_d[i] = mean_d[i];
@@ -177,8 +139,8 @@ int main() {
     //-------------------------------------------------------------------
 
 
-    int* sum_tang_d;
-    cudaMalloc((void**)&sum_tang_d, sizeof(int) * maxgrid * maxgrid);
+    int* sum_tang_uva;
+    cudaMalloc((void**)&sum_tang_uva, sizeof(int) * maxgrid * maxgrid);
 
     int* mean_d;
     cudaMalloc((void**)&mean_d, sizeof(int) * maxgrid * maxgrid);
@@ -186,25 +148,21 @@ int main() {
     int* path_d;
     cudaMalloc((void**)&path_d, sizeof(int) * maxgrid * maxgrid);
 
-    int* diff_d;
-    cudaMalloc((void**)&diff_d, sizeof(int) * maxgrid * maxgrid * length);
+    int* diff_uva;
+    cudaMalloc((void**)&diff_uva, sizeof(int) * maxgrid * maxgrid * length);
 
-    int* sum_diff_d;
-    cudaMalloc((void**)&sum_diff_d, sizeof(int) * maxgrid * maxgrid * length);
+    int* sum_diff_uva;
+    cudaMalloc((void**)&sum_diff_uva, sizeof(int) * maxgrid * maxgrid * length);
     
     init_array(maxgrid, sum_tang, mean, path);
 
     // Copia su GPU
-    cudaMemcpy(sum_tang_d, sum_tang, sizeof(int) * maxgrid * maxgrid, cudaMemcpyHostToDevice);
+    cudaMemcpy(sum_tang_uva, sum_tang, sizeof(int) * maxgrid * maxgrid, cudaMemcpyHostToDevice);
     cudaMemcpy(mean_d, mean, sizeof(int) * maxgrid * maxgrid, cudaMemcpyHostToDevice);
     cudaMemcpy(path_d, path, sizeof(int) * maxgrid * maxgrid, cudaMemcpyHostToDevice);
 
     print_array(maxgrid, path);
     
-    //kernel_reg_detect(niter, maxgrid, length, sum_tang, mean, path, diff, sum_diff);
-
-    //kernel_reg_detect(niter, maxgrid, length, sum_tang_d, mean_d, path_d, diff_d, sum_diff_d);
-
     kernel_reg_detect_cuda(niter, maxgrid, length, sum_tang_d, mean_d, path_d, diff_d, sum_diff_d);
 
     //Copia su Host
@@ -212,17 +170,15 @@ int main() {
 
     print_array(maxgrid, path);
 
-
-
     free(sum_tang);
     free(mean);
     free(path);
 
-    cudaFree(sum_tang_d);
+    cudaFree(sum_tang_uva);
     cudaFree(mean_d);
     cudaFree(path_d);
-    cudaFree(diff_d);
-    cudaFree(sum_diff_d);
+    cudaFree(diff_uva);
+    cudaFree(sum_diff_uva);
     
-    
+    return 0;
 }

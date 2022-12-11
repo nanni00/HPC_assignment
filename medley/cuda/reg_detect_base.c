@@ -73,6 +73,7 @@ static void kernel_reg_detect(int niter, int maxgrid, int length,
 
         for (cnt = 1; cnt <= _PB_LENGTH - 1; cnt++)
           sum_diff[j][i][cnt] = sum_diff[j][i][cnt - 1] + diff[j][i][cnt];
+          
         mean[j][i] = sum_diff[j][i][_PB_LENGTH - 1];
       }
     }

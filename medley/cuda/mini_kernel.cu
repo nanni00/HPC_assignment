@@ -119,7 +119,7 @@ __global__ void main_kernel(int niter, int maxgrid, int length,int* sum_tang_d,i
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
-        if(i<niter)
+        if(i < niter)
         {
             kernel_1(maxgrid, length, diff_d, sum_tang_d);
             __syncthreads();

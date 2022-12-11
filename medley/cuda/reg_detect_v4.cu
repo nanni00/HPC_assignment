@@ -54,11 +54,14 @@ __global__ void kernel_1(int maxgrid, int length, int* diff, int* sum_tang)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
-
-    if(i <= maxgrid-1 && j <= maxgrid-1)
+    int cnt = blockIdx.z * blockDim.z + threadIdx.z; 
+    //&& cnt <= length-1
+    //printf("Iterazioni: %d\n", i);
+    if(i <= maxgrid-1 && j <= maxgrid-1  && cnt <= length-1 && i>=j)
     {
-        for (int cnt = 0; cnt <= length - 1; cnt++)
+        //for (int cnt = 0; cnt <= length - 1; cnt++)
           diff[(j*maxgrid + i)*length + cnt] = sum_tang[j*maxgrid + i];
+          //printf("prova: %d\n", cnt );
     }
 }
 
@@ -76,12 +79,14 @@ __global__ void kernel_3(int maxgrid, int length, int* sum_diff, int* diff)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
-    if(i <= maxgrid-1 && j <= maxgrid-1)
+    int cnt = blockIdx.z * blockDim.z + threadIdx.z; 
+
+    if(i <= maxgrid-1 && j <= maxgrid-1  && cnt <= length-1 && i>=j)
     {
-        for (int cnt = 1; cnt <= length - 1; cnt++)
-        {
+        //for (int cnt = 1; cnt <= length - 1; cnt++)
+        //{
             sum_diff[(j*maxgrid + i)*length + cnt] = sum_diff[(j*maxgrid + i)*length + cnt - 1] + diff[(j*maxgrid + i)*length + cnt];
-        }
+        //}
     }
 }
 
@@ -144,18 +149,21 @@ void reg_detect(int niter, int maxgrid, int length,int* sum_tang,int*mean,
     //dim3 BlocksDim ((size_t)ceil(((float)niter) / ((float)maxgrid)), 1);
     
     dim3 BlocksDim (1,1);
-    dim3 ThreadsPerBlock ( maxgrid, maxgrid);
+    dim3 ThreadsPerBlock (maxgrid, maxgrid);
+    dim3 BlocksDim_1 (1,1,length);
+    dim3 ThreadsPerBlock_1 (maxgrid, maxgrid, 1);
     int somma = 0; 
 
     clock_t begin = clock();
-
-    for(int t = 0; t<1; t++)
+    //printf("niter: %d\n", niter );
+    for(int t = 0; t<niter; t++)
     {
-      kernel_1<<<BlocksDim,ThreadsPerBlock>>>(maxgrid, length, diff_d, sum_tang_d);
+    
+      kernel_1<<<BlocksDim_1,ThreadsPerBlock_1>>>(maxgrid, length, diff_d, sum_tang_d);
       
       kernel_2<<<BlocksDim,ThreadsPerBlock>>>(maxgrid, length, sum_diff_d, diff_d);
       
-      kernel_3<<<BlocksDim,ThreadsPerBlock>>>(maxgrid, length, sum_diff_d, diff_d);
+      kernel_3<<<BlocksDim_1,ThreadsPerBlock_1>>>(maxgrid, length, sum_diff_d, diff_d);
       
       kernel_4<<<BlocksDim,ThreadsPerBlock>>>(maxgrid, length, mean_d, sum_diff_d);
       
@@ -163,7 +171,7 @@ void reg_detect(int niter, int maxgrid, int length,int* sum_tang,int*mean,
       
       kernel_6<<<BlocksDim,ThreadsPerBlock>>>(maxgrid, path_d, mean_d);
 
-      somma++;
+      //somma++;
     }
 
 

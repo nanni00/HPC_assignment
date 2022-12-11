@@ -62,16 +62,19 @@ __global__ void kernel(int maxgrid, int length,int* sum_tang_d,int* mean_d, int*
     //Primo for
     for (int cnt = 0; cnt <= length - 1; cnt++)
       diff_d[(j*maxgrid + i)*length + cnt] = sum_tang_d[j*maxgrid + i];  
+      
   } else if (selector == 2) {
     //Secondo for
-    sum_diff_d[(j*maxgrid + i)*length] = diff_uva[(j*maxgrid + i)*length];
+    sum_diff_d[(j*maxgrid + i)*length] = diff_d[(j*maxgrid + i)*length];
 
     for (int cnt = 1; cnt <= length - 1; cnt++)
       sum_diff_d[(j*maxgrid + i)*length + cnt] = sum_diff_d[(j*maxgrid + i)*length + cnt - 1] + diff_d[(j*maxgrid + i)*length + cnt];
-    mean_d[j*maxgrid + i] = sum_diff_uva[(j*maxgrid + i)*length + (length - 1)];
+    mean_d[j*maxgrid + i] = sum_diff_d[(j*maxgrid + i)*length + (length - 1)];
+  
   } else if (selector == 3 && j == 0) {
     //Terzo for
     path_d[i] = mean_d[i];
+
   } else if (selector == 4 && i == 0 && j == 0) {
     //Quarto for
     for (j = 1; j <= maxgrid - 1; j++)
@@ -82,44 +85,32 @@ __global__ void kernel(int maxgrid, int length,int* sum_tang_d,int* mean_d, int*
 
 #define BLOCK_SIZE 32
 
-static void kernel_reg_detect_cuda(int niter, int maxgrid, int length,int* sum_tang_d,int* mean_d,
+static void kernel_reg_detect(int niter, int maxgrid, int length,int* sum_tang_d,int* mean_d,
                               int* path_d, int* diff_d, int* sum_diff_d)
 {
+
+  dim3 dimGrid((maxgrid+BLOCK_SIZE-1)/BLOCK_SIZE,(maxgrid+BLOCK_SIZE-1)/BLOCK_SIZE);
+  dim3 dimBlock(BLOCK_SIZE,BLOCK_SIZE);
+
+  //dim3 dimGrid(1, 1);
+  //dim3 dimBlock(maxgrid,maxgrid);
+
   clock_t begin = clock();
-
-  //dim3 dimBlock(BLOCK_SIZE,BLOCK_SIZE);
-  //dim3 dimGrid((maxgrid+BLOCK_SIZE-1)/BLOCK_SIZE,(maxgrid+BLOCK_SIZE-1)/BLOCK_SIZE);
-
-  dim3 dimBlock(maxgrid,maxgrid);
-  dim3 dimGrid(1, 1);
-
-  // Allocazioni in memoria
+  
   for (int t = 0; t < niter; t++)
   { 
-    
-    int a = 0;
-
     kernel<<<dimGrid, dimBlock>>>(maxgrid, length, sum_tang_d, mean_d, path_d, diff_d, sum_diff_d, 1);
-
     kernel<<<dimGrid, dimBlock>>>(maxgrid, length, sum_tang_d, mean_d, path_d, diff_d, sum_diff_d, 2);
-
     kernel<<<dimGrid, dimBlock>>>(maxgrid, length, sum_tang_d, mean_d, path_d, diff_d, sum_diff_d, 3);
-
     kernel<<<dimGrid, dimBlock>>>(maxgrid, length, sum_tang_d, mean_d, path_d, diff_d, sum_diff_d, 4);
-
   }
 
   clock_t end = clock();
   printf("Elapsed time with custom timer: %lf\n", (double)(end - begin) / CLOCKS_PER_SEC);
 }
 
-
-
-/*
-
-  Tutto viene eleborato sulla GPU e poi copiato su host.
-  NB. Ciclo lento su GPU
-
+/**
+ * Tutto viene eleborato sulla GPU e poi copiato su host.
 */
 int main() {
     int niter = NITER;
@@ -127,58 +118,51 @@ int main() {
     int length = LENGTH;
 
     int* sum_tang = (int*)malloc(sizeof(int) * maxgrid * maxgrid);
+    //int* sum_diff = (int*)malloc(sizeof(int) * maxgrid * maxgrid * length);
+    //int* diff = (int*)malloc(sizeof(int) * maxgrid * maxgrid * length);
     int* mean = (int*)malloc(sizeof(int) * maxgrid * maxgrid);
     int* path = (int*)malloc(sizeof(int) * maxgrid * maxgrid);
 
-
-    //-------------------------------------------------------------------
-
-    //int* diff = (int*)malloc(sizeof(int) * maxgrid * maxgrid * length);
-
-    //int* sum_diff = (int*)malloc(sizeof(int) * maxgrid * maxgrid * length);
-    //-------------------------------------------------------------------
-
-
-    int* sum_tang_uva;
-    cudaMalloc((void**)&sum_tang_uva, sizeof(int) * maxgrid * maxgrid);
-
+    int* sum_tang_d;
+    int* sum_diff_d;
     int* mean_d;
-    cudaMalloc((void**)&mean_d, sizeof(int) * maxgrid * maxgrid);
-    
     int* path_d;
-    cudaMalloc((void**)&path_d, sizeof(int) * maxgrid * maxgrid);
-
-    int* diff_uva;
-    cudaMalloc((void**)&diff_uva, sizeof(int) * maxgrid * maxgrid * length);
-
-    int* sum_diff_uva;
-    cudaMalloc((void**)&sum_diff_uva, sizeof(int) * maxgrid * maxgrid * length);
+    int* diff_d;
     
-    init_array(maxgrid, sum_tang, mean, path);
+    // allocation on device
+    cudaMalloc((void**)&sum_tang_d, sizeof(int) * maxgrid * maxgrid);
+    cudaMalloc((void**)&sum_diff_d, sizeof(int) * maxgrid * maxgrid * length);
+    cudaMalloc((void**)&mean_d, sizeof(int) * maxgrid * maxgrid);
+    cudaMalloc((void**)&path_d, sizeof(int) * maxgrid * maxgrid);
+    cudaMalloc((void**)&diff_d, sizeof(int) * maxgrid * maxgrid * length);
 
-    // Copia su GPU
-    cudaMemcpy(sum_tang_uva, sum_tang, sizeof(int) * maxgrid * maxgrid, cudaMemcpyHostToDevice);
+    init_array(maxgrid, sum_tang, mean, path);
+    
+    print_array(maxgrid, path);
+
+    // copies to the device
+    cudaMemcpy(sum_tang_d, sum_tang, sizeof(int) * maxgrid, cudaMemcpyHostToDevice);
     cudaMemcpy(mean_d, mean, sizeof(int) * maxgrid * maxgrid, cudaMemcpyHostToDevice);
     cudaMemcpy(path_d, path, sizeof(int) * maxgrid * maxgrid, cudaMemcpyHostToDevice);
 
-    print_array(maxgrid, path);
-    
-    kernel_reg_detect_cuda(niter, maxgrid, length, sum_tang_d, mean_d, path_d, diff_d, sum_diff_d);
+    // call the function
+    kernel_reg_detect(niter, maxgrid, length, sum_tang_d, mean_d, path_d, diff_d, sum_diff_d);
 
-    //Copia su Host
+    // copy to the host
     cudaMemcpy(path, path_d, sizeof(int) * maxgrid * maxgrid, cudaMemcpyDeviceToHost);
 
     print_array(maxgrid, path);
 
+    // free host memory
     free(sum_tang);
     free(mean);
     free(path);
 
-    cudaFree(sum_tang_uva);
+    cudaFree(sum_tang_d);
     cudaFree(mean_d);
     cudaFree(path_d);
-    cudaFree(diff_uva);
-    cudaFree(sum_diff_uva);
-    
+    cudaFree(diff_d);
+    cudaFree(sum_diff_d);
+
     return 0;
 }
